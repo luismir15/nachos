@@ -273,9 +273,23 @@ public class KThread {
      * thread.
      */
     public void join() {
-	       Lib.debug(dbgThread, "Joining to thread: " + toString());
+        //if the status is finished send attempt message
+        if (status == statusFinished)
+        {
+            Lib.debug(dbgThread, "Attempting to join finished thread: " + toString());
+        }
 
-           Lib.assertTrue(this != currentThread);
+        else
+        {
+            Lib.debug(dbgThread, "Joining to thread: " + toString());
+
+            //thread cannot joint itself
+            Lib.assertTrue(this != currentThread);
+
+            
+        }
+
+        Lib.assertTrue(this != currentThread);
 
     }
 
