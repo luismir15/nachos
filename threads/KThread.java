@@ -274,23 +274,33 @@ public class KThread {
      */
     public void join() {
         //if the status is finished send attempt message
-        if (status == statusFinished)
-        {
-            Lib.debug(dbgThread, "Attempting to join finished thread: " + toString());
+        if (status == statusFinished) {
+            Lib.debug(dbgThread, "Attempting to join finished thread: "
+            + toString());
         }
 
-        else
-        {
+        else {
             Lib.debug(dbgThread, "Joining to thread: " + toString());
 
             //thread cannot joint itself
             Lib.assertTrue(this != currentThread);
 
-            
+            //disable machine interrupts
+            boolean threadStatus = Machine.interrupt().disable();
+
+            //new thread are placed in ready queue
+            if (status == statusNew)
+            {
+                ready();
+            }
+
+            //adding on thread list
+            linkedThreads.waitForAccess(currentThread);
+            sleep();
+
+            //restore machine interrupts
+            Machine.interrupt().restore(threadStatus);
         }
-
-        Lib.assertTrue(this != currentThread);
-
     }
 
     /**
