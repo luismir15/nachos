@@ -295,7 +295,7 @@ public class KThread {
             }
 
             //adding on thread list
-            linkedThreads.waitForAccess(currentThread);
+            linkedThread.waitForAccess(currentThread);
             sleep();
 
             //restore machine interrupts
@@ -468,4 +468,5 @@ public class KThread {
     private static KThread currentThread = null;
     private static KThread toBeDestroyed = null;
     private static KThread idleThread = null;
+    private ThreadQueue linkedThread = ThreadedKernel.scheduler.newThreadQueue(true);
 }
