@@ -14,7 +14,7 @@ machine =	Lib Config Stats Machine TCB \
 
 security =	Privilege NachosSecurityManager
 
-ag =		AutoGrader BoatGrader ThreadGrader1
+ag =		AutoGrader BoatGrader ThreadGrader1 ThreadGrader2 ThreadGrader3 ThreadGrader4
 
 threads =	ThreadedKernel KThread Alarm \
 		Scheduler ThreadQueue RoundRobinScheduler \
