@@ -39,7 +39,7 @@ public class Condition2 {
 
     	conditionLock.release();
     	
-    	waitQueue.add(KThread.currentThread());
+    	wait.add(KThread.currentThread());
 
 		KThread.sleep();
     	
@@ -58,8 +58,8 @@ public class Condition2 {
     	
     	boolean status = Machine.interrupt().disable();
     	
-    	if (!waitQueue.isEmpty()) {
-    		waitQueue.pop().ready();
+    	if (!wait.isEmpty()) {
+    		wait.pop().ready();
     	}
     	
     	Machine.interrupt().restore(status);
@@ -74,15 +74,15 @@ public class Condition2 {
     	
     	boolean status = Machine.interrupt().disable();
     	
-    	for (KThread waitingThread : waitQueue) {
+    	for (KThread waitingThread : wait) {
     		waitingThread.ready();
     	}
     	
-    	waitQueue.clear();
+    	wait.clear();
     	
     	Machine.interrupt().restore(status);
     }
 
     private Lock conditionLock;
-    private LinkedList<KThread> waitQueue = new LinkedList<KThread>();
+    private LinkedList<KThread> wait = new LinkedList<KThread>();
 }

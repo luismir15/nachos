@@ -14,7 +14,7 @@ public class Communicator {
 	private Condition speakReady;
 	private Condition listenReady;
 	private int speaking = 0, listening = 0;
-	private int messenger = 0;
+	private boolean messenger = false;
 	private Lock lock; 
 	
     /**
@@ -38,13 +38,15 @@ public class Communicator {
      */
     public void speak(int word) {
     	lock.acquire();
-    	speaking++;
-    	while (listening == 0) {
-    		listenReady.sleep();
+    	//speaking++;
+    	while (listening == 0 || messenger) {
+    		speakReady.sleep();
     	}
-    	listening--;
-    	messenger = word;
-    	speakReady.wake();
+    	//listening--;
+    	messenger = false;
+    	speaking = word;
+    	
+    	listenReady.wake();
     	lock.release();
     }
 
@@ -56,14 +58,19 @@ public class Communicator {
      */    
     public int listen() {
     	lock.acquire();
+    	
     	listening++;
-    	listenReady.wake();
-    	while(speaking == 0) {
-    		speakReady.sleep();
-    	}
-    	speaking--;
-    	int result = messenger;
+    	speakReady.wake();
+    	listenReady.sleep();
+    	
+    	int result = speaking;
+    	messenger = false;
+    	listening--;
+    	//int result = speaking;
+    	
+    	speakReady.wake();
     	lock.release();
+    	
     	return result;
     }
 }
