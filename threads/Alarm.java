@@ -37,7 +37,7 @@ public class Alarm {
     	long time = Machine.timer().getTime();
     	
     	while (!waitingThreads.isEmpty() && waitingThreads.firstKey() <= time) {
-    		waitingThreads.pollFirstEntry().getValue(),ready();
+    		waitingThreads.pollFirstEntry().getValue().ready();
     	}
     	
     	Machine.interrupt().restore(status);
