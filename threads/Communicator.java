@@ -17,7 +17,8 @@ public class Communicator {
     private Condition speakReady;
 	private Condition listenReady;
 	private int speaking = 0, listening = 0;
-	private boolean messenger = false;
+	private int messenger = 0;
+	//private boolean messenger = false;
 	private Lock lock;
 
     /**
@@ -72,17 +73,18 @@ public class Communicator {
      * @return	the integer transferred.
      */
     public int listen() {
+    	int result = 0;
         lock.acquire();
         listening++;
         speakReady.wake();
         if(speaking == 0) {
             listenReady.sleep();
-            int result = messenger;
+            result = messenger;
             speaking--;
         }
         else{
             speaking--;
-            int result = messenger;
+            result = messenger;
         }
         lock.release();
         return result;
