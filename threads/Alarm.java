@@ -1,12 +1,16 @@
 package nachos.threads;
 
 import nachos.machine.*;
+import java.util.TreeMap;
 
 /**
  * Uses the hardware timer to provide preemption, and to allow threads to sleep
  * until a certain time.
  */
 public class Alarm {
+	
+	private TreeMap<Long, KThread> waitingThreads;
+	
     /**
      * Allocate a new Alarm. Set the machine's timer interrupt handler to this
      * alarm's callback.
@@ -15,8 +19,9 @@ public class Alarm {
      * alarm.
      */
     public Alarm() {
-	Machine.timer().setInterruptHandler(new Runnable() {
-		public void run() { timerInterrupt(); }
+    	waitingThreads = new TreeMap<Long, KThread>();
+    	Machine.timer().setInterruptHandler(new Runnable() {
+    		public void run() { timerInterrupt(); }
 	    });
     }
 
@@ -27,7 +32,17 @@ public class Alarm {
      * that should be run.
      */
     public void timerInterrupt() {
-	KThread.currentThread().yield();
+    	boolean status = Machine.interrupt().disable();
+    	
+    	long time = Machine.timer().getTime();
+    	
+    	while (!waitingThreads.isEmpty() && waitingThreads.firstKey() <= time) {
+    		waitingThreads.pollFirstEntry().getValue().ready();
+    	}
+    	
+    	Machine.interrupt().restore(status);
+    	
+    	KThread.currentThread().yield();
     }
 
     /**
@@ -45,9 +60,13 @@ public class Alarm {
      * @see	nachos.machine.Timer#getTime()
      */
     public void waitUntil(long x) {
-	// for now, cheat just to get something working (busy waiting is bad)
-	long wakeTime = Machine.timer().getTime() + x;
-	while (wakeTime > Machine.timer().getTime())
-	    KThread.yield();
+    	// for now, cheat just to get something working (busy waiting is bad)
+    	boolean status = Machine.interrupt().disable();
+    	
+    	waitingThreads.put(Machine.timer().getTime() + x, KThread.currentThread());
+    	
+    	KThread.sleep();
+    	
+    	Machine.interrupt().restore(status);
     }
 }

@@ -43,20 +43,25 @@ public class KThread {
      * create an idle thread as well.
      */
     public KThread() {
-	if (currentThread != null) {
-	    tcb = new TCB();
-	}
-	else {
-	    readyQueue = ThreadedKernel.scheduler.newThreadQueue(false);
-	    readyQueue.acquire(this);
+    	if (currentThread != null) {
+    		tcb = new TCB();
+    	}
+    	else {
+    		readyQueue = ThreadedKernel.scheduler.newThreadQueue(false);
+    		readyQueue.acquire(this);
 
-	    currentThread = this;
-	    tcb = TCB.currentTCB();
-	    name = "main";
-	    restoreState();
+    		currentThread = this;
+    		tcb = TCB.currentTCB();
+    		name = "main";
+    		restoreState();
 
-	    createIdleThread();
-	}
+    		createIdleThread();
+    	}
+    	
+    	boolean status = Machine.interrupt().disable();
+    	linkedThread.acquire(this);
+    	Machine.interrupt().restore(status);
+    	
     }
 
     /**
@@ -295,7 +300,7 @@ public class KThread {
             }
 
             //adding on thread list
-            linkedThreads.waitForAccess(currentThread);
+            linkedThread.waitForAccess(currentThread);
             sleep();
 
             //restore machine interrupts
@@ -468,4 +473,5 @@ public class KThread {
     private static KThread currentThread = null;
     private static KThread toBeDestroyed = null;
     private static KThread idleThread = null;
+    private ThreadQueue linkedThread = ThreadedKernel.scheduler.newThreadQueue(true);
 }
