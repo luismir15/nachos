@@ -114,6 +114,7 @@ public class UserProcess {
     }
 
     /**
+     * EDIT --> 
      * Transfer data from this process's virtual memory to the specified array.
      * This method handles address translation details. This method must
      * <i>not</i> destroy the current process if an error occurs, but instead
@@ -127,13 +128,12 @@ public class UserProcess {
      *			the array.
      * @return	the number of bytes successfully transferred.
      */
-    public int readVirtualMemory(int vaddr, byte[] data, int offset,
-				 int length) {
+    public int readVirtualMemory(int vaddr, byte[] data, int offset, int length) {
     	Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
 
     	byte[] memory = Machine.processor().getMemory();
 	
-	// for now, just assume that virtual addresses equal physical addresses
+    	// for now, just assume that virtual addresses equal physical addresses
     	if (vaddr < 0 || vaddr >= memory.length)
     		return 0;
 
@@ -157,6 +157,7 @@ public class UserProcess {
     }
 
     /**
+     * EDIT -->
      * Transfer data from the specified array to this process's virtual memory.
      * This method handles address translation details. This method must
      * <i>not</i> destroy the current process if an error occurs, but instead
@@ -187,6 +188,7 @@ public class UserProcess {
     }
 
     /**
+     * MAYBE EDIT -->
      * Load the executable with the specified name into this process, and
      * prepare to pass it the specified arguments. Opens the executable, reads
      * its header information, and copies sections and arguments into this
@@ -273,8 +275,16 @@ public class UserProcess {
 
 		return true;
     }
+    
+    /**
+     * Loads the arguments into the last page
+     */
+    protected void loadArguments() {
+    	
+    }
 
     /**
+     * EDIT -->
      * Allocates memory for this process, and loads the COFF sections into
      * memory. If this returns successfully, the process will definitely be
      * run (this is the last step in process initialization that can fail).
@@ -307,6 +317,7 @@ public class UserProcess {
     }
 
     /**
+     * EDIT
      * Release any resources allocated by <tt>loadSections()</tt>.
      */
     protected void unloadSections() {
@@ -346,20 +357,75 @@ public class UserProcess {
 		return 0;
     }
 
+    /**
+     * return first unused file descriptor, or -1 if fileTable full
+     */
+    protected int getFileDescriptor() {
+    	
+    	return 0;
+    }
+    
+    /**
+     * Return whether the given file descriptor is valid
+     */
+    private boolean validFileDescriptor(int fileDesc) {
+    	
+    	return false;
+    }
 
+    private int handleCreat() {
+    	
+    	return 0;
+    }
+    
+    private int handleOpen() {
+    	
+    	return 0;
+    }
+    
+    /**
+     * open a file and add it to the process file table
+     * @return
+     */
+    private int openFile() {
+    	
+    	return 0;
+    }
+    
+    private int handleRead() {
+    	
+    	return 0;
+    }
+    
+    private int handleWrite() {
+    	
+    	return 0;
+    }
+    
+    private int handleClose() {
+    	
+    	return 0;
+    }
+    
+    private int handleUnlink() {
+    	
+    	return 0;
+    }
+    
     private static final int
         syscallHalt = 0,
-	syscallExit = 1,
-	syscallExec = 2,
-	syscallJoin = 3,
-	syscallCreate = 4,
-	syscallOpen = 5,
-	syscallRead = 6,
-	syscallWrite = 7,
-	syscallClose = 8,
-	syscallUnlink = 9;
+        syscallExit = 1,
+        syscallExec = 2,
+        syscallJoin = 3,
+        syscallCreate = 4,
+        syscallOpen = 5,
+        syscallRead = 6,
+        syscallWrite = 7,
+        syscallClose = 8,
+        syscallUnlink = 9;
 
     /**
+     * EDIT -->
      * Handle a syscall exception. Called by <tt>handleException()</tt>. The
      * <i>syscall</i> argument identifies which syscall the user executed:
      *
@@ -401,6 +467,7 @@ public class UserProcess {
     }
 
     /**
+     * EDIT -> (minor change)
      * Handle a user exception. Called by
      * <tt>UserKernel.exceptionHandler()</tt>. The
      * <i>cause</i> argument identifies which exception occurred; see the
