@@ -367,18 +367,47 @@ public class UserProcess {
     
     /**
      * Return whether the given file descriptor is valid
+     * @param fileDesc
+     * @return
      */
     private boolean validFileDescriptor(int fileDesc) {
     	
     	return false;
     }
 
-    private int handleCreat() {
+    /**
+     * Attempt to open the named disk file, creating it if it does not exist,
+     * and return a file descriptor that can be used to access the file.
+     *
+     * Note that creat() can only be used to create files on disk; creat() will
+     * never return a file descriptor referring to a stream.
+     *
+     * Returns the new file descriptor, or -1 if an error occurred.
+     * 
+     * int creat(char *name);
+     * 
+     * @param fileName pointer to null terminated file name
+     * @return file descriptor used to further reference the new file
+     */
+    private int handleCreat(int fileName) {
     	
     	return 0;
     }
     
-    private int handleOpen() {
+    /**
+     * Attempt to open the named file and return a file descriptor.
+     *
+     * Note that open() can only be used to open files on disk; open() will never
+     * return a file descriptor referring to a stream.
+     *
+     * Returns the new file descriptor, or -1 if an error occurred.
+     * 
+     * int opem(char *name);
+     * 
+     * @param fileName pointer to null terminated file name
+     * @return file descriptor used to further reference the new file
+     */
+    private int handleOpen(int fileName) {
     	
     	return 0;
     }
@@ -387,27 +416,118 @@ public class UserProcess {
      * open a file and add it to the process file table
      * @return
      */
-    private int openFile() {
+    private int openFile(int fileName, boolean create) {
     	
     	return 0;
     }
     
-    private int handleRead() {
+    /**
+     * Attempt to read up to count bytes into buffer from the file or stream
+     * referred to by fileDescriptor.
+     *
+     * On success, the number of bytes read is returned. If the file descriptor
+     * refers to a file on disk, the file position is advanced by this number.
+     *
+     * It is not necessarily an error if this number is smaller than the number of
+     * bytes requested. If the file descriptor refers to a file on disk, this
+     * indicates that the end of the file has been reached. If the file descriptor
+     * refers to a stream, this indicates that the fewer bytes are actually
+     * available right now than were requested, but more bytes may become available
+     * in the future. Note that read() never waits for a stream to have more data;
+     * it always returns as much as possible immediately.
+     *
+     * On error, -1 is returned, and the new file position is undefined. This can
+     * happen if fileDescriptor is invalid, if part of the buffer is read-only or
+     * invalid, or if a network stream has been terminated by the remote host and
+     * no more data is available.
+     * 
+     * int read(int fileDescriptor, void *buffer, int count);
+     * 
+     * @param fileDescriptor File descriptor
+     * @param buffer Pointer to buffer in virtual memory
+     * @param count How much to read
+     * @return Number of bytes read, or -1 on error
+     */
+    private int handleRead(int fileDescriptor, int buffer, int count) {
     	
     	return 0;
     }
     
-    private int handleWrite() {
+    /**
+     * Attempt to write up to count bytes from buffer to the file or stream
+     * referred to by fileDescriptor. write() can return before the bytes are
+     * actually flushed to the file or stream. A write to a stream can block,
+     * however, if kernel queues are temporarily full.
+     *
+     * On success, the number of bytes written is returned (zero indicates nothing
+     * was written), and the file position is advanced by this number. It IS an
+     * error if this number is smaller than the number of bytes requested. For
+     * disk files, this indicates that the disk is full. For streams, this
+     * indicates the stream was terminated by the remote host before all the data
+     * was transferred.
+     * On error, -1 is returned, and the new file position is undefined. This can
+     * happen if fileDescriptor is invalid, if part of the buffer is invalid, or
+     * if a network stream has already been terminated by the remote host.
+     * 
+     * int write(int fileDescriptor, void *buffer, int count);
+     * 
+     * @param fileDescriptor File descriptor
+     * @param buffer Pointer to buffer in virtual memory
+     * @param count How much to read
+     * @return Number of bytes read, or -1 on error
+     */
+    private int handleWrite(int fileDescriptor, int buffer, int count) {
     	
     	return 0;
     }
     
-    private int handleClose() {
+   
+    /**
+     * Close a file descriptor, so that it no longer refers to any file or stream
+     * and may be reused.
+     *
+ 	 * If the file descriptor refers to a file, all data written to it by write()
+ 	 * will be flushed to disk before close() returns.
+ 	 * If the file descriptor refers to a stream, all data written to it by write()
+ 	 * will eventually be flushed (unless the stream is terminated remotely), but
+ 	 * not necessarily before close() returns.
+ 	 *
+ 	 * The resources associated with the file descriptor are released. If the
+ 	 * descriptor is the last reference to a disk file which has been removed using
+ 	 * unlink, the file is deleted (this detail is handled by the file system
+ 	 * implementation).
+ 	 *
+ 	 * Returns 0 on success, or -1 if an error occurred.
+ 	 * 
+ 	 * int close(int fileDescriptor);
+ 	 * 
+     * @param fieDescriptor index of file in file table
+     * @return 0 on success, -1 on error
+     */
+    private int handleClose(int fieDescriptor) {
     	
     	return 0;
     }
     
-    private int handleUnlink() {
+    
+    /**
+     * Delete a file from the file system. If no processes have the file open, the
+     * file is deleted immediately and the space it was using is made available for
+     * reuse.
+     *
+     * If any processes still have the file open, the file will remain in existence
+     * until the last file descriptor referring to it is closed. However, creat()
+     * and open() will not be able to return new file descriptors for the file
+     * until it is deleted.
+     *
+     * Returns 0 on success, or -1 if an error occurred.
+     * 
+     * int unlink(char *name);
+     * 
+     * @param fileName pointer to null terminated string with filename
+     * @return 
+     */
+    private int handleUnlink(int fileName) {
     	
     	return 0;
     }
