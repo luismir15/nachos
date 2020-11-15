@@ -25,6 +25,7 @@ public class UserProcess {
     public UserProcess() {
     	int numPhysPages = Machine.processor().getNumPhysPages();
     	pageTable = new TranslationEntry[numPhysPages];
+    	fileTable = new OpenFile[16];
     	for (int i=0; i<numPhysPages; i++)
     		pageTable[i] = new TranslationEntry(i,i, true,false,false,false);
     }
@@ -358,22 +359,57 @@ public class UserProcess {
     }
 
     /**
-     * return first unused file descriptor, or -1 if fileTable full
+     * Return file descriptor null which is unused, else
+     * return -1 to indicate that table is full
+     * 
+     * @return file descriptor: index
      */
     protected int getFileDescriptor() {
+    	
+    	for (int index = 0; index < fileTable.length; index++)
+    	{
+    		if (fileTable[index] == null) {
+    			
+    			return index;
+    		}
+    	}
+    	return -1;
+    }
+    
+    /**
+     * Check if valid descriptor is within rage meaning to
+     * be valid.
+     * @param fileDesc
+     * @return file descriptor
+     */
+    private boolean validFileDescriptor(int fileDesc) {
+    	
+    	if (fileDesc < 0 || fileDesc >= fileTable.length) {
+    		
+    		return false;
+    	}
+    	
+    	return fileTable[fileDesc] != null;
+    }
+    
+    /**
+     * open a file and add it to the process file table
+     * @return
+     */
+    private int openFile(int fileName, boolean create) {
+    	
+    	int fileDescriptor = getFileDescriptor();
+    	
+    	if (fileDescriptor == -1) {
+    		
+    		return -1;
+    	}
+    	
+    	String name = readVirtualMemoryString(fileName, maxSyscall);
     	
     	return 0;
     }
     
-    /**
-     * Return whether the given file descriptor is valid
-     * @param fileDesc
-     * @return
-     */
-    private boolean validFileDescriptor(int fileDesc) {
-    	
-    	return false;
-    }
 
     /**
      * Attempt to open the named disk file, creating it if it does not exist,
@@ -408,15 +444,6 @@ public class UserProcess {
      * @return file descriptor used to further reference the new file
      */
     private int handleOpen(int fileName) {
-    	
-    	return 0;
-    }
-    
-    /**
-     * open a file and add it to the process file table
-     * @return
-     */
-    private int openFile(int fileName, boolean create) {
     	
     	return 0;
     }
@@ -622,6 +649,10 @@ public class UserProcess {
 
     /** This process's page table. */
     protected TranslationEntry[] pageTable;
+    
+    /** A file that supports reading, writing, and seeking*/
+    protected OpenFile[] fileTable;
+    
     /** The number of contiguous pages occupied by the program. */
     protected int numPages;
 
@@ -633,4 +664,6 @@ public class UserProcess {
 	
     private static final int pageSize = Processor.pageSize;
     private static final char dbgProcess = 'a';
+    
+    private static final int maxSyscall = 256;
 }
