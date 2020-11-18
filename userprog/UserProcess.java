@@ -520,10 +520,16 @@ public class UserProcess {
      */
     private int handleWrite(int fileDescriptor, int buffer, int count) {
     	
-    	return 0;
+    	byte bufferArray[] = new byte[count];
+    	
+    	int read = readVirtualMemory(buffer, bufferArray);
+    	
+    	int write = fileTable[fileDescriptor].write(bufferArray, 0, read);
+    	
+    	return write;
     }
     
-   
+ 
     /**
      * Close a file descriptor, so that it no longer refers to any file or stream
      * and may be reused.
@@ -546,7 +552,16 @@ public class UserProcess {
      * @param fieDescriptor index of file in file table
      * @return 0 on success, -1 on error
      */
-    private int handleClose(int fieDescriptor) {
+    private int handleClose(int fileDescriptor) {
+    	
+    	String name = fileTable[fileDescriptor].getName();
+    	
+    	fileTable[fileDescriptor].close();
+    	fileTable[fileDescriptor] = null;
+    	
+    	/**
+    	 * unreference file FileRef.unreferenceFile(fileName);
+    	 */
     	
     	return 0;
     }
