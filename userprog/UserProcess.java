@@ -5,6 +5,7 @@ import nachos.threads.*;
 import nachos.userprog.*;
 
 import java.io.EOFException;
+import java.util.HashMap;
 
 /**
  * Encapsulates the state of a user process that is not contained in its
@@ -414,6 +415,12 @@ public class UserProcess {
     	return fileDescriptor;
     }
     
+    
+    public static int  unreference(String name) {
+    	
+    	
+    	return 0;
+    }
 
     /**
      * Attempt to open the named disk file, creating it if it does not exist,
@@ -559,9 +566,7 @@ public class UserProcess {
     	fileTable[fileDescriptor].close();
     	fileTable[fileDescriptor] = null;
     	
-    	/**
-    	 * unreference file FileRef.unreferenceFile(fileName);
-    	 */
+    	
     	
     	return 0;
     }
@@ -671,6 +676,35 @@ public class UserProcess {
 			Lib.debug(dbgProcess, "Unexpected exception: " +
 					Processor.exceptionNames[cause]);
 			Lib.assertNotReached("Unexpected exception");
+    	}
+    }
+    
+    private static class FileReference {
+    	
+    	int references;
+    	boolean remove;
+    	private static HashMap<String, FileReference> globalRef = new HashMap<String, FileReference>(); 
+    	private static Lock globalLock = new Lock();
+    	
+    	public static boolean reference(String fileName){
+    		
+    		FileReference file;
+    	}
+    	
+    	private static FileReference update(String name) {
+    		
+    		globalLock.acquire();
+    		
+    		FileReference reference = globalRef.get(name);
+    		
+    		if (reference == null) {
+    			
+    			reference = new FileReference();
+    			
+    			globalRef.put(name, reference);
+    		}
+    		
+    		return reference;
     	}
     }
 
