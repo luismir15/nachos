@@ -396,7 +396,7 @@ public class UserProcess {
      * open a file and add it to the process file table
      * @return
      */
-    private int openFile(int fileName, boolean create) {
+    private int openFile(int file, boolean create) {
     	
     	int fileDescriptor = getFileDescriptor();
     	
@@ -405,9 +405,13 @@ public class UserProcess {
     		return -1;
     	}
     	
-    	String name = readVirtualMemoryString(fileName, maxSyscall);
+    	String name = readVirtualMemoryString(file, MAX_SYSCALL);
     	
-    	return 0;
+    	OpenFile open = UserKernel.fileSystem.open(name, create);
+    	
+    	fileTable[fileDescriptor] = open;
+    	
+    	return fileDescriptor;
     }
     
 
@@ -427,7 +431,7 @@ public class UserProcess {
      */
     private int handleCreat(int fileName) {
     	
-    	return 0;
+    	return openFile(fileName, true);
     }
     
     /**
@@ -445,7 +449,7 @@ public class UserProcess {
      */
     private int handleOpen(int fileName) {
     	
-    	return 0;
+    	return openFile(fileName, false);
     }
     
     /**
@@ -477,7 +481,18 @@ public class UserProcess {
      */
     private int handleRead(int fileDescriptor, int buffer, int count) {
     	
-    	return 0;
+    	byte bufferArray[] = new byte[count];
+    	
+    	int read = fileTable[fileDescriptor].read(bufferArray, 0, count);
+    	
+    	int write = writeVirtualMemory(buffer, bufferArray, 0, read);
+    	
+    	if (write != read) {
+    		
+    		return -1;
+    	}
+    	
+    	return read;
     }
     
     /**
@@ -665,5 +680,5 @@ public class UserProcess {
     private static final int pageSize = Processor.pageSize;
     private static final char dbgProcess = 'a';
     
-    private static final int maxSyscall = 256;
+    private static final int MAX_SYSCALL = 256;
 }
