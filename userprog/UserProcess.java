@@ -289,26 +289,37 @@ public class UserProcess {
      * @return	<tt>true</tt> if the sections were successfully loaded.
      */
     protected boolean loadSections() {
-    	if (numPages > Machine.processor().getNumPhysPages()) {
-    		coff.close();
-    		Lib.debug(dbgProcess, "\tinsufficient physical memory");
-    		return false;
-		}
+	if (numPages > Machine.processor().getNumPhysPages()) {
+	    coff.close();
+	    Lib.debug(dbgProcess, "\tinsufficient physical memory");
+	    return false;
+	}
 
-		// load sections
-    	for (int s=0; s<coff.getNumSections(); s++) {
-    		CoffSection section = coff.getSection(s);
+	int[] ppnSec = UserKernel,allocate(numPages);
+	
+	pageTable = new TranslationEntry[numPages];
+	
+	// load sections
+	for (int s=0; s<coff.getNumSections(); s++) {
+	    CoffSection section = coff.getSection(s);
+	    
+	    Lib.debug(dbgProcess, "\tinitializing " + section.getName()
+		      + " section (" + section.getLength() + " pages)");
 
-    		Lib.debug(dbgProcess, "\tinitializing " + section.getName()
-    				+ " section (" + section.getLength() + " pages)");
+	    for (int i=0; i<section.getLength(); i++) {
+		int vpn = section.getFirstVPN()+i;
+		int ppn = ppnSec[vpn];
+		
+		TranslationEntry currPage = new TranslationEntry(vpn, ppn, true, section.isReadOnly(),
+									false, false);
+		
+		pageTable[vpn] = currPage;
 
-    		for (int i=0; i<section.getLength(); i++) {
-    			int vpn = section.getFirstVPN()+i;
-
-    			// for now, just assume virtual addresses=physical addresses
-    			section.loadPage(i, vpn);
-    		}
-    	}
+		// for now, just assume virtual addresses=physical addresses
+		section.loadPage(i, ppn);
+	    }
+	    
+	}
 
     	return true;
     }
