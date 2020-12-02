@@ -289,26 +289,37 @@ public class UserProcess {
      * @return	<tt>true</tt> if the sections were successfully loaded.
      */
     protected boolean loadSections() {
-    	if (numPages > Machine.processor().getNumPhysPages()) {
-    		coff.close();
-    		Lib.debug(dbgProcess, "\tinsufficient physical memory");
-    		return false;
-		}
+	if (numPages > Machine.processor().getNumPhysPages()) {
+	    coff.close();
+	    Lib.debug(dbgProcess, "\tinsufficient physical memory");
+	    return false;
+	}
 
-		// load sections
-    	for (int s=0; s<coff.getNumSections(); s++) {
-    		CoffSection section = coff.getSection(s);
+	int[] ppnSec = UserKernel,allocate(numPages);
+	
+	pageTable = new TranslationEntry[numPages];
+	
+	// load sections
+	for (int s=0; s<coff.getNumSections(); s++) {
+	    CoffSection section = coff.getSection(s);
+	    
+	    Lib.debug(dbgProcess, "\tinitializing " + section.getName()
+		      + " section (" + section.getLength() + " pages)");
 
-    		Lib.debug(dbgProcess, "\tinitializing " + section.getName()
-    				+ " section (" + section.getLength() + " pages)");
+	    for (int i=0; i<section.getLength(); i++) {
+		int vpn = section.getFirstVPN()+i;
+		int ppn = ppnSec[vpn];
+		
+		TranslationEntry currPage = new TranslationEntry(vpn, ppn, true, section.isReadOnly(),
+									false, false);
+		
+		pageTable[vpn] = currPage;
 
-    		for (int i=0; i<section.getLength(); i++) {
-    			int vpn = section.getFirstVPN()+i;
-
-    			// for now, just assume virtual addresses=physical addresses
-    			section.loadPage(i, vpn);
-    		}
-    	}
+		// for now, just assume virtual addresses=physical addresses
+		section.loadPage(i, ppn);
+	    }
+	    
+	}
 
     	return true;
     }
@@ -590,6 +601,197 @@ public class UserProcess {
     	return FileReference.delete(name);
     }
 
+    private int handleExit(int status)
+    {
+        parentProcess = null;
+
+        if (parentProcess != null)
+        {
+            //acquire the lock for the parent process
+            lock.acquire();
+            parentProcess.childProcessStatus.put(processID, status)
+            lock.release();
+        }
+
+        unloadSections();
+
+        int childrenNum = childProcesses.size();
+        //iterate through children list
+        for (int i = 0; 1 < childrenNum; i++)
+        {
+            //remove all the children from the childProcessList
+            UserProcess child = childProcesses.removeFirst();
+            //set the child parent back to null
+            child.parentProcess = null;
+        }
+        //System.out.println("exit" + processID + status);
+
+        //if the process id is the root terminate
+        if (processID == 0)
+        {
+            Kernel.kernel.terminate();
+        } else {
+
+            //finish the thread and then return 0
+            UThread.finish();
+        }
+        return 0;
+    }
+
+    // adding handleExec Method
+
+    private int handleExec(int virtualAddress, int arg1, int arg2)
+    {
+        //check to see if arguments are valid
+        if (virtualAddress < 0 || arg1 < 0 || arg2 < 0)
+        {
+            Lib.debug(dbgProcess, "handleExec:Invalid entry")
+            return -1;
+        }
+
+        //grab the filename from the virtual address
+        //check to see if the address exists
+        String fileName = readVirtualMemoryString(virtualAddress, 256);
+
+        //if file name does not exist return no process ID
+        if(fileName == null)
+        {
+            Lib.debug(dbgProcess, "handleExec:file name does not exist");
+            return -1;
+        }
+
+        //check that the file extension is the correct format
+        if (fileName.contains(".coff") == false)
+        {
+            Lib.debug(dbgProcess, "handleExec: Incorrect file format, need to end with .coff")
+            return -1;
+        }
+
+        //make an array to hold given arguments
+        String[] argsHolder = new String[arg1];
+
+        //iterate through all values less than argument 1's length
+        for (int i = 0; i < arg1; i++)
+        {
+            //create a new buffer
+            byte[] argBuffer = new byte[4];
+            //create a new variable to hold the length of the virtual memory read
+            int memReadLen = readyVirtualMemory(arg2 + i * 4, argBuffer);
+
+            //if address not 4 bytes return -1
+            if (memReadLen != 4)
+            {
+                Lib.debug(dbgProcess, "handleExec:argument address incorrect size");
+            }
+
+            //create a new variable to hold the argument virtual address
+            int argVirtualAddress = Lib.bytesToInt(argBuffer, 0);
+
+            //get the virtual memory string from the virtual address previously grabbed
+            String arg = readVirtualMemoryString(argVirtualAddress, 256);
+
+            if (arg == null)
+            {
+                Lib.debug(dbgProcess, "handleExec:argument null");
+                return -1;
+            }
+
+            //store the argument into the args holder object
+            argsHolder[1] = arg;
+        }
+
+        //create a new child process
+        UserProcess childPro = UserProcess.newUserProcess();
+
+        //if the child process cannot execute, return -1
+        if (childPro.execute(fileName, argsHolder) === false)
+        {
+            Lib.debug(dbgProcess, "handleExec:child process failure");
+            return -1;
+        }
+
+        //set the child process's parent to this process
+        childPro.parentProcess = this;
+
+        //add the child to the chold process list
+        this.childProcesses.add(childPro);
+
+        //return the child process ID
+        return childPro.processID;
+    }
+
+    //adding handleJoin Method
+
+    private int handleJoin(int processID, int statusAddr)
+    {
+        //if process ID or virtual Address is out of range
+        if (processID < 0 || statusAddr < 0)
+        {
+            return -1;
+        }
+        //create a child process variable
+        UserProcess child = null;
+        //get the current number of child processes
+        int numberOfChildren = childProcesses.size();
+
+        //iterate through each child
+        for (int i = 0; i < numberOfChildren; i++)
+        {
+            // if child has the same process ID, its okay to join
+            if (childProcesses.get(i).processID == processID)
+            {
+                // set the child as the child in the list with the matching ID
+                child = childProcesses.get(i);
+                break;
+            }
+        }
+
+        //if the result is null, no parent can join to the child
+        if (child == null)
+        {
+            Lib.deb(dbgProcess, "handleJoin:processID is not the child");
+            return -1;
+        }
+        // at this point the child should be able to join
+        // using the join function, join the child thread
+        child.thread.join();
+        child.parentProcess = null;
+
+        childProcesses.remove(child);
+
+        // critical code
+        lock.acquire();
+        // wait for the lock and get the child process ID
+        Integer status = childProcessStatus.get(child.processID);
+        lock.release();
+        // remove the child from the childProcesses Join List
+        if (status == null)
+        {
+            //if status is not null, the child can exit
+            Lib.debug(dbgProcess, "handleJoin:Cannot find the exit status of the child");
+            return 0;
+        }
+
+        else
+        {
+            //create a new buffer of 4 bytes
+            byte[] buffer = new byte[4];
+            //get the buffer
+            buffer = Lib.bytesFromInt(status);
+            //if the value status is 4 bytes we can return 1
+            if (writeVirtualMemory(statusAddr, buffer) == 4)
+            {
+                return 1;
+            }
+            else
+            {
+                Lib.debug(dbgProcess, "handleJoin:Write status failed");
+                return 0;
+            }
+        }
+
+    }
+
     private static final int
         syscallHalt = 0,
         syscallExit = 1,
@@ -637,14 +839,14 @@ public class UserProcess {
             case syscallHalt:
     		      return handleHalt();
 
-            /*case syscallExit:
-                return handleExit();
+            case syscallExit:
+                return handleExit(a0);
 
             case syscallExit:
-                return handleExec();
+                return handleExec(a0, a1, a2);
 
             case syscallJoin:
-                return handleJoin();*/
+                return handleJoin(a0, a1);
 
             case syscallCreate:
                 return handleCreat(a0);
