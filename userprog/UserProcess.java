@@ -28,9 +28,9 @@ public class UserProcess {
     	pageTable = new TranslationEntry[numPhysPages];
     	fileTable = new OpenFile[16];
         fileTable[0] = UserKernel.console.openForReading();
-        FileReference.references(fileTable[0].getName());
+        FileReference.reference(fileTable[0].getName());
         fileTable[1] = UserKernel.console.openForReading();
-        FileReference.references(fileTable[1].getName());
+        FileReference.reference(fileTable[1].getName());
     	for (int i=0; i<numPhysPages; i++)
     		pageTable[i] = new TranslationEntry(i,i, true,false,false,false);
     }
@@ -289,26 +289,37 @@ public class UserProcess {
      * @return	<tt>true</tt> if the sections were successfully loaded.
      */
     protected boolean loadSections() {
-    	if (numPages > Machine.processor().getNumPhysPages()) {
-    		coff.close();
-    		Lib.debug(dbgProcess, "\tinsufficient physical memory");
-    		return false;
-		}
+	if (numPages > Machine.processor().getNumPhysPages()) {
+	    coff.close();
+	    Lib.debug(dbgProcess, "\tinsufficient physical memory");
+	    return false;
+	}
 
-		// load sections
-    	for (int s=0; s<coff.getNumSections(); s++) {
-    		CoffSection section = coff.getSection(s);
+	int[] ppnSec = UserKernel,allocate(numPages);
+	
+	pageTable = new TranslationEntry[numPages];
+	
+	// load sections
+	for (int s=0; s<coff.getNumSections(); s++) {
+	    CoffSection section = coff.getSection(s);
+	    
+	    Lib.debug(dbgProcess, "\tinitializing " + section.getName()
+		      + " section (" + section.getLength() + " pages)");
 
-    		Lib.debug(dbgProcess, "\tinitializing " + section.getName()
-    				+ " section (" + section.getLength() + " pages)");
+	    for (int i=0; i<section.getLength(); i++) {
+		int vpn = section.getFirstVPN()+i;
+		int ppn = ppnSec[vpn];
+		
+		TranslationEntry currPage = new TranslationEntry(vpn, ppn, true, section.isReadOnly(),
+									false, false);
+		
+		pageTable[vpn] = currPage;
 
-    		for (int i=0; i<section.getLength(); i++) {
-    			int vpn = section.getFirstVPN()+i;
-
-    			// for now, just assume virtual addresses=physical addresses
-    			section.loadPage(i, vpn);
-    		}
-    	}
+		// for now, just assume virtual addresses=physical addresses
+		section.loadPage(i, ppn);
+	    }
+	    
+	}
 
     	return true;
     }
@@ -903,7 +914,18 @@ public class UserProcess {
 
     	public static boolean reference(String name){
 
-    		FileReference file;
+    		FileReference file = update(name);
+    		
+    		boolean check = !file.removed;
+    		
+    		if (check) {
+    			
+    			file.references++;
+    		}
+    		
+    		globalLock.release();
+    		
+    		return check;
     	}
 
         public static int unreference(String name) {
@@ -916,7 +938,7 @@ public class UserProcess {
 
             int rev = remove(name, refence);
 
-            globalRef.release();
+            globalLock.release();
 
             return rev;
         }
@@ -929,14 +951,14 @@ public class UserProcess {
 
             int rev = remove(name, refence);
 
-            globalRef.release();
+            globalLock.release();
 
             return rev;
         }
 
         private static int remove(String name, FileReference reference) {
 
-            if (refence.references <= 0) {
+            if (reference.references <= 0) {
 
                 globalRef.remove(name);
 

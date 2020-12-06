@@ -106,10 +106,50 @@ public class UserKernel extends ThreadedKernel {
     public void terminate() {
     	super.terminate();
     }
+	
+	
+ public static int[] allocate(int numAlloc) {
+    	pagesLock.acquire();
+    	
+    	
+    	//if the number of pages asked to be made free exceeds the size of the linkedlist return null
+    	if(numAlloc > pages.size()) {
+    		pagesLock.release();
+    		return null;
+    	}
+    	
+    	//list of the page numbers to be returned
+    	releaseList int[] = new int[numAlloc];
+    	
+    	//remove pages from the linkedlist and add to the list
+    	for(i = 0; i < numAlloc; i++) {
+    		int pn = pages.remove();
+    		releaseList[i] = pn;
+    	}
+    	
+    	pagesLock.release();
+    	
+    	return releaseList;
+    }
+    
+    public static void release(int pnum) {
+    	pagesLock.acquire();
+    	
+    	//simply add page number to the linked list
+    	pages.add(pnum);
+    	
+    	pagesLock.release();
+    }
 
     /** Globally accessible reference to the synchronized console. */
     public static SynchConsole console;
 
-    // dummy variables to make javac smarter
+    /** dummy variables to make javac smarter */
     private static Coff dummy1 = null;
+    
+    /**shared linkedlist to manage paging */
+    private static LinkedList<Integer> pages;
+    
+    /**Lock to prevent concurrent processes */
+    private Lock pagesLock;
 }
