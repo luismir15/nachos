@@ -72,21 +72,16 @@ public class VMProcess extends UserProcess {
 	    return true;
     }
 
-    /**
-     * Release any resources allocated by <tt>loadSections()</tt>.
-     */
-    protected void unloadSections() {
-	    super.unloadSections();
-    }    
+   @Override
+	protected void unloadSections() {
+		kernel.freePages(PID, numPages);
+	}
 
-    /**
-     * EDIT -->
-     * 
-     * Handle a user exception. Called by
-     * <tt>UserKernel.exceptionHandler()</tt>. The
-     * <i>cause</i> argument identifies which exception occurred; see the
-     * <tt>Processor.exceptionZZZ</tt> constants.
-     *
+	@Override
+	protected void loadArguments(int entryOffset, int stringOffset, byte[][] argv) {
+		thunkedSections.put(numPages - 1, new ArgConstructor(entryOffset, stringOffset, argv));
+	}
+
      * @param	cause	the user exception that occurred.
      */
     public void handleException(int cause) {
