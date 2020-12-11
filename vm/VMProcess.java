@@ -302,3 +302,82 @@ public class VMProcess extends UserProcess {
 		public boolean unpin;
 	}
 }
+
+public abstract class Constructor {
+		abstract TranslationEntry execute();
+	}
+
+	public class CoffigConstructor extends Constructor {
+		CoffigConstructor(CoffSection sec, int vpn1) {
+			coffSection = sec;
+			vpn = vpn1;
+		}
+
+		@Override
+		TranslationEntry execute() {
+			//Also, remove yourself from all the thunked section mappings you're in
+			int sectionNumber = vpn - coffSection.getFirstVPN();
+			Lib.assertTrue(thunkedSections.remove(vpn) != null);
+			
+			//Get a free page
+			TranslationEntry returnEntry = kernel.requestFreePage(vpn, PID);
+			coffSection.loadPage(sectionNumber, returnEntry.ppn);
+			
+			returnEntry.readOnly = coffSection.isReadOnly() ? true : false;
+
+			return returnEntry;
+		}
+
+		public CoffSection coffSection;
+		public int vpn;
+	}
+
+	public class StackConstructor extends Constructor {
+		StackConstructor(int vpn1) {
+			vpn = vpn1;
+		}
+
+		@Override
+		TranslationEntry execute() {
+			//Remove yourself from the mapping
+			Lib.assertTrue(thunkedSections.remove(vpn) != null);
+
+			TranslationEntry te = kernel.requestFreePage(vpn, PID);
+			te.readOnly = false;
+			return te;
+		}
+
+		public int vpn;
+	}
+
+	public class ArgConstructor extends Constructor {
+		ArgConstructor(int _entryOffset, int _stringOffset, byte[][] _argv) {
+			entryOffset = _entryOffset; stringOffset = _stringOffset; argv = _argv;
+		}
+
+		@Override
+		TranslationEntry execute() {
+			Lib.assertTrue(thunkedSections.remove(numPages - 1) != null);
+
+			TranslationEntry te = kernel.requestFreePage(numPages - 1, PID);//get a free page
+
+			//The page is pinned, so just use writeVM to load in the info
+			for (int i = 0; i < argv.length; i++) {
+				byte[] stringOffsetBytes = Lib.bytesFromInt(stringOffset);
+				Lib.assertTrue(writeVirtualMemory(entryOffset, stringOffsetBytes, false) == 4);
+				entryOffset += 4;
+				Lib.assertTrue(writeVirtualMemory(stringOffset, argv[i], false) == argv[i].length);
+				stringOffset += argv[i].length;
+				Lib.assertTrue(writeVirtualMemory(stringOffset, new byte[] { 0 }, false) == 1);
+				stringOffset += 1;
+			}
+			
+			te.readOnly = true;
+			
+			return te;
+		}
+
+		public int entryOffset, stringOffset;
+		public byte[][] argv;
+	}
+}
