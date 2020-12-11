@@ -37,13 +37,39 @@ public class VMProcess extends UserProcess {
     }
 
     /**
+     * VERIFY
+     * 
      * Initializes page tables for this process so that the executable can be
      * demand-paged.
      *
      * @return	<tt>true</tt> if successful.
      */
     protected boolean loadSections() {
-	    return super.loadSections();
+
+        int vpn = 0;
+
+        for (int index = 0; index < coff.getNumSection(); index++) {
+
+            CoffSection section = coff.getSection(index);
+
+            CoffConstructor constructor;
+
+            vpn += section.getLength();
+
+            for (int i = section.getFirstVPN(); i < vpn; i++) {
+
+                constructor = new CoffConstructor(section, i);
+
+                thunk.put(i, constructor);
+            }
+
+            for (; vpn < numPages - 1; vpn++) {
+
+                thunk.put(vpn, new StackConstructor(vpn));
+            }
+        }
+
+	    return true;
     }
 
     /**
@@ -67,9 +93,14 @@ public class VMProcess extends UserProcess {
 	    Processor processor = Machine.processor();
 
 	    switch (cause) {
-	    default:
-	        super.handleException(cause);
-	        break;
+        
+            case Processor.exceptionTLBMiss:
+                handleTLBMiss(processor.readRegister(processor.regBadVAddr));
+                break;
+            
+            default:
+	            super.handleException(cause);
+	            break;
 	    }
     }
 
@@ -78,27 +109,196 @@ public class VMProcess extends UserProcess {
      * @param address
      */
     public void handleTLB(int address) {
+
+        TranslationEntry retrieve = retrievePage(Processor.pageFromAddress(vaddr));
+
+        boolean unwritten = true;
+
+        Processor process = Machine.processor();
+
+        for (int index = 0; i < process.getTLBSize() && unwritten; index++) {
+
+            TranslationEntry tlb = process.readTLBEntry(index);
+
+            if (tlb.ppn == retrive.ppn) {
+
+                if (unwritten) {
+
+                    process.writeTLBEntry(index, retrive);
+                    unwritten = false;
+                }
+
+                else if (tlb.valid) {
+
+                    tlb.valid = false;
+                    
+                    process.writeTLBEntry(index, tlb);
+                }
+            }
+
+            else if (unwritten && !tlb.valid) {
+
+                process.writeTLBEntry(index, retrieve);
+
+                unwritten = false;
+            }
+        }
+
+        if (unwritten) {
+
+            Random random = new Random();
+
+            int tlbIndex = random.nextInt(process.getTLBSize());
+
+            TranslationEntry entry = process.readTLBEntry(tlbIndex);
+
+            if (entry.dirty || entry.used) {
+
+                kernel.propagateEntry(entry.ppn, entry.used, entry.dirty);
+            }
+
+            process.writeTLBEntry(random, retrieve);
+        }
+
+        kernel.unpit(retrieve.ppn);
     }
 
     public TranslationEntry retrieve(int vpn) {
 
+        TranslationEntry entry = null;
+
+        if(thunked.constainsKey(vpn)) {
+
+            entry = thunked.get(vpn).execute();
+        }
+
+        else if((entry = kernel.pinIfExists(vpn, PID)) == null) {
+
+            entry = kernel.pageFault(vpn, PID);
+        }
+
+        Lib.assertTrue(entry != null);
+
+        return entry;
     }
 
     public int readVirtualMemory(int address, byte[] data, int offset, int lenght) {
 
+        int bytes = 0;
+        LinkedList<VMMemoryAccess> memoryAccesses = create(vaddr, data, offset, length, AccessType.READ, true);
+
+        if (memoryAccesses != null) {
+
+            int temporary;
+
+            for (VMMemoryAccess memory : memoryAccesses) {
+
+                temporary = memory.executeAccess();
+
+                if (temporary == 0) {
+
+                    break;
+                }
+
+                else {
+
+                    bytes += temporary;
+                }
+            }
+
+            return bytes;
+        }
     }
 
     public int writeVirtualMemory(int address, byte[] data, int offset, int length) {
 
+        return writeVirtualMemory(address, data, offset, length, true);
     }
 
-    public int writeVirtualMemory(int address, byte[] data, boolean unpin) {
+    public int writeVirtualMemory(int address, byte[] data, int offset, int length, boolean unpin) {
 
+        int bytes = 0;
+		LinkedList<VMMemoryAccess> memoryAccesses = createMemoryAccesses(vaddr, data, offset, length, AccessType.WRITE, unpin);
+
+		if (memoryAccesses != null) {
+
+            int temporary;
+            
+			for (VMMemoryAccess memory : memoryAccesses) {
+
+                temporary = memory.executeAccess();
+                
+				if (temporary == 0) {
+
+                    break;
+                }
+
+				else {
+
+                    bytes += temporary;
+                }
+			}
+		}
+
+		return bytes;
     }
 
-    
-	
+    public LinkedList<VMMemoryAccess> create(int vaddr, byte[] data, int offset, int length, AccessType accessType, boolean unpin) {
+
+        Lib.assertTrue(offset >= 0 && length >= 0 && offset + length <= data.length);
+        LinkedList<VMMemoryAccess> list = null;
+
+        if (validAddress(vaddr)) {
+
+            list = new LinkedList<VMMemoryAccess>();
+
+            while (length > 0) {
+
+                int vpn = Processor.pageFromAddress(vaddr);
+                int page = Processor.pageSize - Processor.offsetFromAddress(vaddr);
+                int access = length < page ? length : page;
+
+                list.add(new VMMemoryAccess(accessType, data, vpn, offset, Processor.offsetFromAddress(vaddr), accessType, unpin));
+                length -= access;
+                vaddr += access;
+                offset += access;
+            }
+        }
+
+        return list;
+    }
+
     private static final int pageSize = Processor.pageSize;
     private static final char dbgProcess = 'a';
     private static final char dbgVM = 'v';
+    public static VMKernel kernel = null;
+    protected int PID;
+    protected int numPages;
+    public HashMap<Integer, Constructor> thunked = new HashMap<Integer, Constructor>();
+
+    protected class VMMemoryAccess extends UserProcess.MemoryAccess {
+
+		VMMemoryAccess(AccessType access, byte[] d, int vpn, int start, int seconStart, int length, boolean _unpin) {
+
+            super(access, d, vpn, start, secondStart, length);
+            
+			unpin = _unpin;
+        }
+        
+		public int executeAccess() {
+			
+			translationEntry = retrievePage(vpn);
+
+			int bytes = super.executeAccess();
+
+			if (unpin) {
+
+                kernel.unpin(translationEntry.ppn);
+            }
+
+			return bytes;
+		}
+
+		public boolean unpin;
+	}
 }
